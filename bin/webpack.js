@@ -4,28 +4,28 @@ var path = require("path");
 var fs = require("fs");
 var argv = require("optimist")
 	.usage("Usage: $0 <input> <output>")
-	
+
 	.boolean("single")
 	.describe("single", "Disable Code Splitting")
 	.default("single", false)
-	
+
 	.boolean("min")
 	.describe("min", "Minimize it with uglifyjs")
 	.default("min", false)
-	
+
 	.boolean("filenames")
 	.describe("filenames", "Output Filenames Into File")
 	.default("filenames", false)
-	
+
 	.string("options")
 	.describe("options", "Options JSON File")
-	
+
 	.string("script-src-prefix")
 	.describe("script-src-prefix", "Path Prefix For JavaScript Loading")
-	
+
 	.string("libary")
 	.describe("libary", "Stores the exports into this variable")
-	
+
 	.demand(1)
 	.argv;
 
@@ -80,7 +80,7 @@ if(argv.single) {
 	if(!options.outputDirectory) options.outputDirectory = path.dirname(output);
 	if(!options.output) options.output = path.basename(output);
 	if(!options.outputPostfix) options.outputPostfix = "." + path.basename(output);
-	var outExists = path.existsSync(options.outputDirectory);
+	var outExists = fs.existsSync(options.outputDirectory);
 	if(!outExists)
 		fs.mkdirSync(options.outputDirectory);
 	webpack(input, options, function(err, stats) {
