@@ -1,3 +1,7 @@
+/*
+	MIT License http://www.opensource.org/licenses/mit-license.php
+	Author Tobias Koppers @sokra
+*/
 var cp = require('child_process');
 
 var argv = process.argv;
@@ -5,7 +9,7 @@ argv.shift();
 argv.shift();
 var extraArgs = argv.join(" ");
 
-cp.exec("node ../bin/webpack.js "+extraArgs+" example.js js/output.js && cp index.html js/", function (error, stdout, stderr) {
+cp.exec("node ../../bin/webpack.js "+extraArgs+" example.js js/output.js", function (error, stdout, stderr) {
 	console.log('stdout:\n' + stdout);
 	console.log('stderr:\n ' + stderr);
 	if (error !== null) {

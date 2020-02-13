@@ -5,14 +5,15 @@
 As developer you want to reuse existing code.
 As with node.js and web all file are already in the same language, but it is extra work to use your code with the node.js module system and the browser.
 The goal of `webpack` is to bundle CommonJs modules into javascript files which can be loaded by `<script>`-tags.
-Concating all required file has a disadvantage: many code to download (and execute) on page load.
-Therefor `webpack` uses the `require.ensure` function to split your code automatically into multiple bundles which are loaded on demand.
+Simply concating all required files has a disadvantage: many code to download (and execute) on page load.
+Therefore `webpack` uses the `require.ensure` function ([CommonJs/Modules/Async/A](http://wiki.commonjs.org/wiki/Modules/Async/A)) to split your code automatically into multiple bundles which are loaded on demand.
 This happens mostly transparent to the developer with a single function call. Dependencies are resolved for you.
 The result is a smaller inital code download which results in faster page load.
 
 **TL;DR**
 
-* bundle CommonJs modules
+* bundle CommonJs modules for browser
+* reuse server-side code (node.js) on client-side
 * create multiple files which are loaded on demand
 * dependencies managed for you
 * faster page load in big webapps
@@ -51,42 +52,6 @@ are compiled to
 })
 ```
 
-## Browser replacements
-
-Somethings it happens that browsers require other code than node.js do.
-`webpack` allow module developers to specify replacements which are used in the compile process of `webpack`.
-
-Modules in `web_modules` replace modules in `node_modules`.
-`filename.web.js` replaces `filename.js` when required without file extention.
-
-TODO specify replacements in options
-
-## Limitations
-
-### `require`-function
-
-As dependencies are resolved before running:
-* `require` should not be overwritten
-* `require` should not be called indirect as `var r = require; r("./a");`
-* arguments of `require` should be literals. `"./abc" + "/def"` is allowed to support long lines.
-* `require.ensure` has the same limitations as `require`
-* the function passed to `require.ensure` should be inlined in the call.
-
-TODO allow variables passing to `require` like `require("./templates/" + mytemplate)`
-(this will cause all modules matching this pattern to be included in addition to a mapping table)
-
-### node.js specific modules
-
-As node.js specific modules like `fs` will not work in browser they are not included and cause an error.
-You should replace them be own modules if your use them.
-
-```
-web_modules
-  fs
-  path
-  ...
-```
-
 ## Code Splitting
 
 ### Example
@@ -110,7 +75,77 @@ File 2: 1.web.js
 - code of module d and dependencies
 ```
 
-See [details](modules-webpack/tree/master/example) for exact output.
+See [details](modules-webpack/tree/master/examples/code-splitting) for exact output.
+
+## Browser replacements
+
+Somethings it happens that browsers require other code than node.js do.
+`webpack` allow module developers to specify replacements which are used in the compile process of `webpack`.
+
+Modules in `web_modules` replace modules in `node_modules`.
+`filename.web.js` replaces `filename.js` when required without file extention.
+
+TODO specify replacements in options
+
+## require.context
+
+If the `require`d module is not known while compile time we get into a problem.
+A solution is the method `require.context` which takes a directory as parameter
+and returns a function which behaves like the `require` function issued from a file
+in this directory (but only if used for files in that directory).
+
+### Example
+
+We have a directory full of templates, which are compiled javascript files.
+A template should be loaded by template name.
+
+``` javascript
+var requireTemplate = require.context("./templates");
+function getTemplate(templateName) {
+	return requireTemplate("./" + templateName);
+}
+```
+
+In addition to that `webpack` uses the `require.context` function automatically
+if you use variables or other non-literal things in the `require` function.
+That means the following code behaves like the above:
+
+``` javascript
+function getTemplate(templateName) {
+	return require("./templates/" + templateName);
+}
+// is compiled like: return require.context("./templates")("./"+templateName)
+```
+
+See [details](modules-webpack/tree/master/examples/require.context) for complete example.
+
+
+*Warning: The complete code in the directory are included. So use it carefully.*
+
+## Limitations
+
+### `require`-function
+
+As dependencies are resolved before running:
+
+* `require` should not be overwritten
+* `require` should not be called indirect as `var r = require; r("./a");`. Use `require.context`?
+* `require.ensure` should not be overwritten or called indirect
+* the function passed to `require.ensure` should be inlined in the call.
+* `require.context` should not be overwritten or called indirect
+* the argument to `require.context` should be a literal or addition of multiple literals
+
+### node.js specific modules
+
+As node.js specific modules like `fs` will not work in browser they are not included and cause an error.
+You should replace them by own modules if you want to use them.
+
+```
+web_modules
+  fs
+  path
+  ...
+```
 
 ## Usage
 
@@ -136,8 +171,10 @@ Options:
 
 ### Programmatically Usage
 
-`webpack(context, moduleName, [options], callback)`
-`webpack(absoluteModulePath, [options], callback)`
+``` javascript
+webpack(context, moduleName, [options], callback)
+webpack(absoluteModulePath, [options], callback)
+```
 
 #### `options`
 
@@ -168,9 +205,10 @@ minimize outputs with uglify-js
 add absolute filenames of input files as comments
 
 #### `callback`
+
 `function(err, source / stats)`
 `source` if `options.output` is not set
-else `stats` as json see [example](/modules-webpack/tree/master/example)
+else `stats` as json see [example](/modules-webpack/tree/master/examples/code-splitting)
 
 ## medikoo/modules-webmake
 
@@ -180,20 +218,29 @@ So big credit goes to medikoo.
 However `webpack` has big differences:
 
 `webpack` replaces module names and paths with numbers. `webmake` don't do that and do resolves requires on client-side.
-This design of `webmake` wes intended to support variables as arguments to require calls.
+This design of `webmake` was intended to support variables as arguments to require calls.
 `webpack` resolves requires in compile time and have no resolve code on client side. This results in smaller bundles.
-Variables as argments will be handled different and with more limitations.
+Variables as argments will be handled different and with more limitations in `webpack`.
 
 Another limitation in `webmake` which are based on the previous one is that modules must be in the current package scope.
 In `webpack` this is not a restriction.
 
-The design of `webmake` causes all modules with the same name to overlap. This can be problematic if different submodules rely on specific versions of the same module. The behaivior also differs from the behaivior of node.js, because node.js installs a module for each instance in submodules and `webmake` cause them the merge into a single module which is only installed once. In `webpack` this is not the case. Different versions do not overlap and modules are installed multiple times. But in `webpack` this can (currently) cause duplicate code if a module is used in multiple modules. I want to face this issue (TODO).
+There is no `require.context` in `webmake`. Therefore there is a forced include list in options which allows modules to be required even if the names were not available at compile time.
+
+The design of `webmake` causes all modules with the same name to overlap.
+This can be problematic if different submodules rely on specific versions of the same module.
+The behaivior also differs from the behaivior of node.js, because node.js installs a module for each instance in submodules and `webmake` cause them the merge into a single module which is only installed once.
+In `webpack` this is not the case.
+Different versions do not overlap and modules are installed multiple times.
+But in `webpack` this can (currently) cause duplicate code if a module is used in multiple modules.
+I want to face this issue (TODO).
 
 `webmake` do (currently) not support Code Splitting.
+But medikoo said he works at some related feature.
 
 ## Tests
 
-You can run the unit tests which `node_modules/.bin/vows`.
+You can run the unit tests with `npm test`.
 
 You can run the browser tests:
 
@@ -214,4 +261,4 @@ You are also welcome to correct any spelling mistakes or any language issues, be
 
 ## License
 
-MIT
+MIT (http://www.opensource.org/licenses/mit-license.php)
