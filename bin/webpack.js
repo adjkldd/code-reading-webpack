@@ -6,6 +6,8 @@
 */
 var path = require("path");
 var fs = require("fs");
+var util = require("util");
+var sprintf = require("sprintf").sprintf;
 var argv = require("optimist")
 	.usage("Usage: $0 <input> <output>")
 
@@ -29,6 +31,17 @@ var argv = require("optimist")
 
 	.string("libary")
 	.describe("libary", "Stores the exports into this variable")
+
+	.boolean("colors")
+	.describe("colors", "Output Stats with colors")
+	.default("colors", false)
+
+	.boolean("json")
+	.describe("json", "Output Stats as JSON")
+	.default("json", false)
+	
+	.string("alias")
+	.describe("alias", "Set a alias name for a module. ex. http=http-browserify")
 
 	.demand(1)
 	.argv;
@@ -65,6 +78,18 @@ if(argv.libary) {
 	options.libary = argv.libary;
 }
 
+if(argv.alias) {
+	if(typeof argv.alias === "string")
+		argv.alias = [argv.alias];
+	options.resolve = options.resolve || {};
+	options.resolve.alias = options.resolve.alias || {};
+	var aliasObj = options.resolve.alias;
+	argv.alias.forEach(function(alias) {
+		alias = alias.split("=");
+		aliasObj[alias[0]] = alias[1];
+	});
+}
+
 var webpack = require("../lib/webpack.js");
 
 if(argv.single) {
@@ -92,6 +117,50 @@ if(argv.single) {
 			console.error(err);
 			return;
 		}
-		console.log(stats);
+		if(argv.json)
+			console.log(util.inspect(stats, false, 10, argv.colors));
+		else {
+			console.log("Chunks: \033[1m" + stats.chunkCount + "\033[22m");
+			console.log("Modules: \033[1m" + stats.modulesCount + "\033[22m");
+			console.log("Modules including duplicates: \033[1m" + stats.modulesIncludingDuplicates + "\033[22m");
+			console.log("Modules pre chunk: \033[1m" + stats.modulesPerChunk + "\033[22m");
+			console.log("Modules first chunk: \033[1m" + stats.modulesFirstChunk + "\033[22m");
+			if(stats.fileSizes)
+				for(var file in stats.fileSizes) {
+					console.log("\033[1m" + sprintf("%" + (5 + options.output.length) + "s", file) + "\033[22m: \033[1m" + sprintf("%8d", stats.fileSizes[file]) + "\033[22m characters");
+				};
+			if(stats.fileModules) {
+				for(var file in stats.fileModules) {
+					console.log("\033[1m\033[32m" + file + "\033[39m\033[22m");
+					var modules = stats.fileModules[file];
+					modules.forEach(function(module) {
+						console.log("  \033[1m" + sprintf("%3s", module.id+"") + " " + (module.filename || (module.dirname && ("generated " + module.dirname)) || "generated") + "\033[22m");
+						module.reasons.forEach(function(reason) {
+							switch(reason.type) {
+							case "require":
+								console.log("       \033[36mrequire (" + reason.count + "x) from " + reason.filename + "\033[39m");
+								break;
+							case "context":
+								console.log("       \033[90mcontext from " + reason.filename + "\033[39m");
+								break;
+							case "async require":
+								console.log("       \033[35masync require (" + reason.count + "x) from " + reason.filename + "\033[39m");
+								break;
+							case "async context":
+								console.log("       \033[35masync context from " + reason.filename + "\033[39m");
+								break;
+							default:
+								console.log("       \033[31m" + reason.type + "\033[39m");
+							}
+						});
+					});
+				}
+			}
+			if(stats.warnings) {
+				stats.warnings.forEach(function(warning) {
+					console.log("\033[1m\033[33mWARNING: " + warning + "\033[39m\033[22m");
+				});
+			}
+		}
 	});
 }

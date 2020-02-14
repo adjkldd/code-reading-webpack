@@ -13,17 +13,66 @@ setTimeout(function() {
 
 window.test(require("./circular") === 1, "circular require should work");
 window.test(require("./singluar.js").value === 1, "sigular module loaded");
-require("./singluar.js").value = 2;
+require("./sing" + "luar.js").value = 2;
 window.test(require("./singluar").value === 2, "exported object is singluar");
 window.test(require("subfilemodule") === "subfilemodule", "Modules as single file should load");
 window.test(require.context("../templates")("./tmpl") === "test template", "Context should work");
-window.test(require.context("../templates")("./subdir/tmpl.js") === "subdir test template", "Context should work with subdirectories");
-var template = "tmpl";
+window.test(require . context ( "." + "." + "/" + "templ" + "ates" ) ( "./subdir/tmpl.js" ) === "subdir test template", "Context should work with subdirectories and splitted");
+var template = "tmpl", templateFull = "./tmpl.js";
 window.test(require("../templates/" + template) === "test template", "Automatical context should work");
+window.test(require("../templates/templateLoader")(templateFull) === "test template", "Automatical context without prefix should work");
+window.test(require("../templates/templateLoaderIndirect")(templateFull) === "test template", "Automatical context should work with require identifier");
+window.test(function(require) { return require; }(1234) === 1234, "require overwrite in anonymos function");
+function testFunc(abc, require) {
+	return require;
+}
+window.test(testFunc(333, 678) === 678, "require overwrite in named function");
+function testCase(number) {
+	//window.test(require("./folder/file" + (number === 1 ? 1 : "2")) === "file" + number);
+    window.test(require(number === 1 ? "../folder/file1" : number === 2 ? "../folder/file2" : number === 3 ? "../folder/file3" : "./missingModule") === "file" + number, "?: operator in require do not create context, test " + number);
+}
+testCase(1);
+testCase(2);
+testCase(3);
+
+var error = null;
+try {
+	testCase(4);
+} catch(e) {
+	error = e;
+}
+window.test(error instanceof Error, "Missing module should throw Error, indirect");
+error = null;
+try {
+	require("./missingModule2");
+} catch(e) {
+	error = e;
+}
+window.test(error instanceof Error, "Missing module should throw Error, direct");
 
 require.ensure([], function(require) {
 	var contextRequire = require.context(".");
 	window.test(contextRequire("./singluar").value === 2, "Context works in chunk");
+	var singl = "singl";
+	window.test(require("." + "/" + singl + "uar").value === 2, "Context works in chunk, when splitted");
+	window.test(typeof module.id === "string", "module.id should be a string");
+	window.test(process.argv && process.argv.length > 1, "process.argv should be an array");
+	process.nextTick(function() {
+		sum2++;
+	});
+	process.on("xyz", function() {
+		sum2++;
+	});
+	process.emit("xyz");
+	window.test(window === global, "window === global");
+	(function() {
+		var require = 123;
+		window.test(require === 123, "overwrite require via variable should be ok");
+	}());
+	(function() {
+		var module = 1233;
+		window.test(module === 1233, "overwrite module via variable should be ok");
+	}());
 });
 
 require.ensure([], function(require) {
@@ -47,6 +96,8 @@ require.ensure([], function(require) {
 	require("./duplicate2");
 	sum++;
 });
+var sum2 = 0;
 setTimeout(function() {
 	window.test(sum === 2, "Multiple callbacks on code load finish");
+	window.test(sum2 === 2, "process.nextTick and process.emit/on should be polyfilled");
 }, 3000);
