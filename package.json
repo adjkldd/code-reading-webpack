@@ -6,8 +6,7 @@
 	"dependencies": {
 		"esprima": "0.9.8",
 		"optimist": "0.2.x",
-		"uglify-js": "1.2.5",
-		"sprintf": "0.1.x"
+		"uglify-js": "3.7.6"
 	},
 	"optionalDependencies": {
 		"http-browserify": "*",
